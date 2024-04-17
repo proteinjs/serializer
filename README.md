@@ -1,21 +1,141 @@
 # Overview
 
-A set of tools for managing workspace build operations, working directly on top of npm. No config required to use.
+A simple serializer api. Features:
+- Recursive serialization (aka recurse and serialize object properties and array elements, applying custom serialization where appropriate)
+- Custom serialization you can define for your types
+- Custom serialization you can define for third party lib types
+
+**Note:** Depends on [@proteinjs/reflection](https://github.com/proteinjs/reflection) to load your `CustomSerializer` and `ThirdPartyLibCustomSerializer` implementations.
 
 ## How to use
 
-1. Install as a dev dependency of your workspace root package `npm i --save-dev @proteinjs/build`
-2. The following commands are now available
-    - `npx build-workspace` runs `npm install` and `npm run build` for each package, in dependency order, until the workspace is built
-    - `npx test-workspace` runs `npm run test` for each package
-    - `npx watch-workspace` runs `npm run watch` for each package
+### Basic use
 
-**Note:** if a script is not defined for a package (ie. `build`|`test`|`watch`), the package will be skipped when running the workspace command instead of failing.
+1. Install `npm i -s @proteinjs/serializer`
+2. Use `Serializer` for recursive serialization
+    ```
+    import { Serializer } from '@proteinjs/serializer'
 
-## How it works
+    const pedro = {
+        name: 'Pedro Pascal',
+        born: 'April 2, 1975',
+        moviesAndShows: [
+            { name: 'The Last of Us' },
+            { name: 'Narcos' },
+            { name: 'Game of Thrones' },
+        ],
+    };
+    const serializedPedro = Serializer.serialize(pedro); // string
+    const deserializedPedro = Serializer.deserialize(serializedPedro); // object
+    console.assert(pedro.moviesAndShows[0].name == deserializedPedro.moviesAndShows[0].name && deserializedPedro.moviesAndShows[0].name == 'The Last of Us')
+    ```
 
-- Each script searches recursively for local packages, starting in the directory you executed the command in, and builds a dependency graph used for command sequencing.
-- During the install phase, it creates symlinks to local dependencies.
-    - Local dependencies are determined by the filesystem search, not by the dependency version specified in the package.json.
-    - This is useful for being able to specify explicit dependency versions for publishing, while also being able to build from local source during development. It all just works.
-    - Note: if publishing packages, keep in mind that the package must be published first before any package can depend on the explicit version and leverage the symlinking of this library. This is because `npm i` is first executed, and then symlinks are created afterwards, blowing away the version installed from the registry. The `npm i` command will fail (per usual) if your package depends on an explicit version of a package that doesn't exist in the registry.
+### Custom serialization for your type
+
+1. Install `npm i -s @proteinjs/serializer`
+2. Setup reflection loading for your package - [instructions](https://github.com/proteinjs/reflection)
+3. Use `CustomSerializer` to define a serializer for your type
+    ```
+    import { CustomSerializer } from '@proteinjs/serializer';
+    import { Graph } from '@proteinjs/util';
+    import { QueryBuilder } from '@proteinjs/db-query';
+
+    type SerializedQueryBuilder = {
+        tableName: string,
+        graph: Graph,
+        idCounter: number,
+        rootId: string,
+        currentContextIds: string[],
+        paginationNodeId?: string,
+    }
+
+    export const queryBuilderSerializerId = '@proteinjs/db/QueryBuilderSerializer';
+
+    export class QueryBuilderSerializer implements CustomSerializer {
+        id = queryBuilderSerializerId;
+        
+        serialize(qb: QueryBuilder<any>): SerializedQueryBuilder {
+            return { 
+            tableName: qb.tableName,
+            graph: qb.graph,
+            idCounter: qb.idCounter,
+            rootId: qb.rootId,
+            currentContextIds: qb.currentContextIds,
+            paginationNodeId: qb.paginationNodeId,
+            };
+        }
+        
+        deserialize(serializedQb: SerializedQueryBuilder): QueryBuilder<any> {
+            const qb = new QueryBuilder(serializedQb.tableName);
+            qb.graph = serializedQb.graph;
+            qb.idCounter = serializedQb.idCounter;
+            qb.rootId = serializedQb.rootId;
+            qb.currentContextIds = serializedQb.currentContextIds;
+            qb.paginationNodeId = serializedQb.paginationNodeId;
+            return qb;
+        }
+    }
+    ```
+4. Mark your type with the custom serializer id
+    ```
+    import { queryBuilderSerializerId } from './QueryBuilderSerializer';
+    ...
+
+    export class QueryBuilder<T = any> {
+        public __serializerId = queryBuilderSerializerId;
+        public graph: Graph;
+        public idCounter: number = 0;
+        ...
+    }
+    ```
+5. Use `Serializer` per usual. Serializer will find and use `QueryBuilderSerializer` via [@proteinjs/reflection](https://github.com/proteinjs/reflection)'s `SourceRepository` api
+    ```
+    import { Serializer } from '@proteinjs/serializer';
+    import { QueryBuilder } from '@proteinjs/db-query';
+
+    const qb = new QueryBuilder('my-table');
+    const serializedQb = Serializer.serialize(qb);
+    const deserializedQb = Serializer.deserialize(serializedQb);
+    ```
+
+### Custom serialization for third party lib type
+
+1. Install `npm i -s @proteinjs/serializer`
+2. Setup reflection loading for your package - [instructions](https://github.com/proteinjs/reflection)
+3. Use `ThirdPartyLibCustomSerializer` to define a serializer for a third party lib
+    ```
+    import moment from 'moment';
+    import { ThirdPartyLibCustomSerializer } from '../Serializer';
+
+    type SerializedMoment = {
+        value: number,
+    }
+
+    export class MomentSerializer implements ThirdPartyLibCustomSerializer {
+        id = '@proteinjs/serializer/MomentSerializer';
+        
+        matches(obj: any) {
+            return moment.isMoment(obj);
+        }
+
+        serialize(m: moment.Moment): SerializedMoment {
+            return { value: m.valueOf() };
+        }
+
+        deserialize(serializedMoment: SerializedMoment): moment.Moment {
+            return moment(serializedMoment.value);
+        }
+    }
+    ```
+4. Use `Serializer` per usual. Serializer will find and use `MomentSerializer` via [@proteinjs/reflection](https://github.com/proteinjs/reflection)'s `SourceRepository` api
+    ```
+    import moment from 'moment';
+    import { Serializer } from '@proteinjs/serializer';
+
+    const now = moment();
+    const serializedNow = Serializer.serialize(now);
+    const deserializedNow = Serializer.deserialize(serializedNow);
+    console.assert(moment.isMoment(deserializedNow));
+    ```
+
+**Note:** An implementation of `MomentSerializer` is included by default with `@proteinjs/serializer`; no need to define it yourself
