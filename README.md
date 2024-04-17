@@ -1,45 +1,21 @@
 # Overview
 
-Protein JS is an app framework, written in TypeScript, leveraging Node and React. It's relatively modular and aims to be opt-in as much as possible, while also providing a range of components types: from minimal-dependency utilities to stateful, full-stack features. For example, you could depend on just @proteinjs/conversation to leverage APIs for interacting with chat bots. Or, you could depend on most packages and consume DB services with their corresponding UI components and build your own.
+A set of tools for managing workspace build operations, working directly on top of npm. No config required to use.
 
-The direction of Protein JS is to be a simple set of tools to build scalable and maintainable apps as we transition into the AI era.
+## How to use
 
-The project is currently in beta, and can be used by building from source via the setup instructions below. Packages will be published as the project matures.
+1. Install as a dev dependency of your workspace root package `npm i --save-dev @proteinjs/build`
+2. The following commands are now available
+    - `npx build-workspace` runs `npm install` and `npm run build` for each package, in dependency order, until the workspace is built
+    - `npx test-workspace` runs `npm run test` for each package
+    - `npx watch-workspace` runs `npm run watch` for each package
 
-Current goals:
+**Note:** if a script is not defined for a package (ie. `build`|`test`|`watch`), the package will be skipped when running the workspace command instead of failing.
 
-1. Add additional infra support (db drivers, ai chatbot drivers, cloud ops utils)
-2. Stabilize with automated testing and production use
-3. Onboard interested devs
+## How it works
 
-# Setup
-
-1. Setup the Protein JS components monorepo
-    1. `git clone git@github.com:proteinjs/components.git`
-    2. `cd components && ./setup.sh`
-2. Setup a local mysql server
-    1. Install docker
-    2. Create and start mysql container: `docker run -p 127.0.0.1:3306:3306  --name mdb -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=TRUE -d mariadb:latest`
-    3. (optional) Connect to mysql cli: `docker exec -it mdb mariadb --user root`
-3. Setup the app-template project
-    1. `git clone git@github.com:proteinjs/app-template.git`
-    2. `cd app-template/common && npm i && npm run watch`
-    3. Open a new terminal tab and run: `cd app-template/ui && npm i && npm run watch`
-    4. Open a new terminal tab and run: `cd app-template/server && npm i && npm run watch`
-    5. Open a new terminal tab and run: `cd app-template/server && npm run dev`
-        1. The watch build in the previous window will re-build the app-template-server package as you make changes. To get those changes into the running server, kill the server in this terminal with `ctrl+c` and then run `npm run dev` again to start it with the latest build
-        2. The server watches the app-template-ui package, creates incremental builds, and ships down hot updates to the browser automatically. The reason for the watch process in the app-template-ui package is for compiler error checking; the incrememtal build in the server just transpiles for performance. Compiler errors should show up in your editor regardless of these watch processes.
-4. Open http://localhost:3000 in a browser
-
-# Example usage
-
-1. Tables
-    1. An example table is created in app-template-common
-    2. Since app-template-ui and app-template-server depend on @proteinjs/db-ui and @proteinjs/db-driver-knex respectively, you get a base set of table and form components for free for any table created with the @proteinjs/db/Table api
-        1. Open http://localhost:3000/tables in a browser
-        2. Click on the table named `example`
-        3. You've been navigated to the table ui for this table, where all its records are listed
-        4. If you click `+` you will be navigated to the form to create a record in that table
-        5. After creating the record, the form will enable you to update or delete the record
-        6. Once there are records in the table, the table component enables you to delete records as well with the multi-select action
-    3. The components behind these db pages can be used programmatically by importing things like `RecordForm` and `RecordTable` from the @proteinjs/db-ui package
+- Each script searches recursively for local packages, starting in the directory you executed the command in, and builds a dependency graph used for command sequencing.
+- During the install phase, it creates symlinks to local dependencies.
+    - Local dependencies are determined by the filesystem search, not by the dependency version specified in the package.json.
+    - This is useful for being able to specify explicit dependency versions for publishing, while also being able to build from local source during development. It all just works.
+    - Note: if publishing packages, keep in mind that the package must be published first before any package can depend on the explicit version and leverage the symlinking of this library. This is because `npm i` is first executed, and then symlinks are created afterwards, blowing away the version installed from the registry. The `npm i` command will fail (per usual) if your package depends on an explicit version of a package that doesn't exist in the registry.
