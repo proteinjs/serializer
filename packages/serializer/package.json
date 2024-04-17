@@ -18,15 +18,14 @@
     "scripts": {
         "clean": "rm -rf dist/ node_modules/ generated/ package-lock.json",
         "build": "reflection-build && tsc",
-        "watch": "reflection-watch",
-        "test": "jest"
+        "watch": "reflection-watch"
     },
     "dependencies": {
         "@proteinjs/reflection": "1.0.2",
         "moment": "2.29.4"
     },
     "devDependencies": {
-        "@proteinjs/reflection-build": "1.0.4",
+        "@proteinjs/reflection-build": "1.0.5",
         "@types/jest": "29.5.5",
         "@types/node": "14.0.27",
         "jest": "29.7.0",
