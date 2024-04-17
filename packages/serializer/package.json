@@ -6,6 +6,9 @@
         "type": "git",
         "url": "git+https://github.com/proteinjs/serializer.git"
     },
+    "publishConfig": {
+        "access": "public"
+    },
     "bugs": {
         "url": "https://github.com/proteinjs/serializer/issues"
     },
