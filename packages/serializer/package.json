@@ -1,6 +1,6 @@
 {
   "name": "@proteinjs/serializer",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Simple serializer api",
   "repository": {
     "type": "git",

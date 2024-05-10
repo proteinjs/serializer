@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.9](https://github.com/proteinjs/serializer/compare/@proteinjs/serializer@1.0.8...@proteinjs/serializer@1.0.9) (2024-05-10)
+
+
+### Bug Fixes
+
+* add .md file type to lint ignore files ([ff801c8](https://github.com/proteinjs/serializer/commit/ff801c8ac7f8e36147da01577102c68a27bdbfcb))
+
+
+
+
+
 ## [1.0.8](https://github.com/proteinjs/serializer/compare/@proteinjs/serializer@1.0.7...@proteinjs/serializer@1.0.8) (2024-05-10)
 
 
