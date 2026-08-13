@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.1.11](https://github.com/proteinjs/serializer/compare/@proteinjs/serializer@1.1.10...@proteinjs/serializer@1.1.11) (2026-08-13)
+
+**Note:** Version bump only for package @proteinjs/serializer
+
+
+
+
+
 # [1.1.0](https://github.com/proteinjs/serializer/compare/@proteinjs/serializer@1.0.19...@proteinjs/serializer@1.1.0) (2025-09-19)
 
 
