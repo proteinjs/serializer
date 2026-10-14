@@ -65,8 +65,14 @@ export class Serializer {
     return Serializer.thirdPartyLibCustomSerializerMap;
   }
 
+  /**
+   * The wire form: compact JSON — the bytes `JSON.stringify` writes with no indentation. The text
+   * is read by {@link deserialize}, which accepts any JSON text of the value (an indented form
+   * included), so the form may change without a reader changing. It was indented once; a service
+   * answer of a few megabytes paid for the whitespace at serialization, on the wire and at the parse.
+   */
   static serialize(serializable: any): string {
-    return JSON.stringify(Serializer._serialize(serializable), null, 2);
+    return JSON.stringify(Serializer._serialize(serializable));
   }
 
   private static _serialize(serializable: any) {
