@@ -1,1 +1,0 @@
-{ "branch": "feat/compact-wire-form-r2", "packages": ["serializer"], "suites": ["packages/serializer/test/SerializerWireForm.test.ts"], "removes": [] }
