@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.2.0](https://github.com/proteinjs/serializer/compare/@proteinjs/serializer@1.1.11...@proteinjs/serializer@1.2.0) (2026-10-14)
+
+
+### Features
+
+* **serializer:** compact wire form — serialize writes JSON with no indentation ([d98fff2](https://github.com/proteinjs/serializer/commit/d98fff22255c591679bfa9c3bbbbb74f87dc08fb))
+
+
+
+
+
 ## [1.1.11](https://github.com/proteinjs/serializer/compare/@proteinjs/serializer@1.1.10...@proteinjs/serializer@1.1.11) (2026-08-13)
 
 **Note:** Version bump only for package @proteinjs/serializer
