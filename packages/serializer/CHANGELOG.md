@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.1](https://github.com/proteinjs/serializer/compare/@proteinjs/serializer@1.2.0...@proteinjs/serializer@1.2.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **serializer:** a value read back is the one its serializer returned ([1fda9dd](https://github.com/proteinjs/serializer/commit/1fda9dd7b47ecae803bfa54821ba06d7ca99f32e))
+
+
+
+
+
 # [1.2.0](https://github.com/proteinjs/serializer/compare/@proteinjs/serializer@1.1.11...@proteinjs/serializer@1.2.0) (2026-10-14)
 
 
