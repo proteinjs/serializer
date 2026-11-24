@@ -1,0 +1,6 @@
+{
+  "branch": "fix/a-value-is-what-its-serializer-returns",
+  "packages": ["serializer"],
+  "suites": ["packages/serializer/test/SerializerWireForm.test.ts"],
+  "removes": []
+}

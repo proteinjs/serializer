@@ -1,5 +1,6 @@
 import moment from 'moment';
-import { Serializer } from '../src/Serializer';
+import { SourceRepository } from '@proteinjs/reflection';
+import { CustomSerializer, Serializer } from '../src/Serializer';
 
 /**
  * The wire form: `Serializer.serialize` writes COMPACT JSON — the bytes `JSON.stringify` writes
@@ -101,5 +102,132 @@ describe('the parse road reads the value back from either form', () => {
     );
     expect(moment.isMoment(earlier.when)).toBe(true);
     expect(earlier.when.isSame(when)).toBe(true);
+  });
+});
+
+/**
+ * Two kinds of this suite's own, each with a serializer in the registry the serializer reads once, before
+ * its first use (where a built package's generated index leaves its own):
+ *  - a shelf is KEPT: its serializer writes the shelf's name and reads the kept shelf back by that name;
+ *  - a loan is MADE from its fields: its serializer counts the days between two moments as it reads them.
+ */
+const SHELF_SERIALIZER_ID = '@proteinjs/serializer/test/ShelfSerializer';
+const LOAN_SERIALIZER_ID = '@proteinjs/serializer/test/LoanSerializer';
+
+type Shelf = { __serializerId: string; name: string; open: boolean };
+type Loan = { __serializerId: string; from: moment.Moment; to: moment.Moment; days?: number };
+
+const shelves: { [name: string]: Shelf } = {};
+
+class ShelfSerializer implements CustomSerializer {
+  id = SHELF_SERIALIZER_ID;
+
+  serialize(shelf: Shelf): { shelfName: string } {
+    return { shelfName: shelf.name };
+  }
+
+  deserialize(serialized: { shelfName: string }): Shelf {
+    const shelf = shelves[serialized.shelfName];
+    if (!shelf) {
+      throw new Error(`No shelf is kept under the name: ${serialized.shelfName}`);
+    }
+
+    return shelf;
+  }
+}
+
+class LoanSerializer implements CustomSerializer {
+  id = LOAN_SERIALIZER_ID;
+
+  /** A moment rides its own kind inside the loan's form; `SerializableObject` does not type one, so `any`. */
+  serialize(loan: Loan): any {
+    return { from: loan.from, to: loan.to };
+  }
+
+  deserialize(serialized: { from: any; to: any }): Loan {
+    const read = moment.isMoment(serialized.from) && moment.isMoment(serialized.to);
+    return {
+      __serializerId: LOAN_SERIALIZER_ID,
+      from: serialized.from,
+      to: serialized.to,
+      days: read ? serialized.to.diff(serialized.from, 'days') : undefined,
+    };
+  }
+}
+
+SourceRepository.get()
+  .objects<CustomSerializer>('@proteinjs/serializer/CustomSerializer')
+  .push(new ShelfSerializer(), new LoanSerializer());
+
+describe('a value read back is the one its serializer returned', () => {
+  beforeEach(() => {
+    shelves.poetry = { __serializerId: SHELF_SERIALIZER_ID, name: 'poetry', open: false };
+  });
+
+  it('a kept value is read back as it was kept, whatever else its form carries', () => {
+    const read = Serializer.deserialize(
+      JSON.stringify({
+        shelf: { __serializerId: SHELF_SERIALIZER_ID, shelfName: 'poetry', open: true, note: 'left by a reader' },
+      })
+    );
+    expect(read.shelf).toBe(shelves.poetry);
+    expect(shelves.poetry).toEqual({ __serializerId: SHELF_SERIALIZER_ID, name: 'poetry', open: false });
+  });
+
+  it('a serializer is handed its form with each field already read back', () => {
+    const loan: Loan = {
+      __serializerId: LOAN_SERIALIZER_ID,
+      from: moment(1_700_000_000_000),
+      to: moment(1_700_000_000_000).add(3, 'days'),
+    };
+    const read = Serializer.deserialize(Serializer.serialize({ loan })).loan as Loan;
+    expect(read.days).toBe(3);
+    expect(read.to.isSame(loan.to)).toBe(true);
+  });
+
+  it('a read that fails leaves a kept value as it was kept', () => {
+    const text = JSON.stringify({
+      __serializerId: SHELF_SERIALIZER_ID,
+      shelfName: 'poetry',
+      open: true,
+      beside: { __serializerId: SHELF_SERIALIZER_ID, shelfName: 'essays' },
+    });
+    expect(() => Serializer.deserialize(text)).toThrow('No shelf is kept under the name: essays');
+    expect(shelves.poetry).toEqual({ __serializerId: SHELF_SERIALIZER_ID, name: 'poetry', open: false });
+  });
+
+  /** Two names no serializer is registered under; the second is a name every object answers to. */
+  const NAMES_NOBODY_REGISTERED = ['nobody/registered/this', 'constructor'];
+
+  it('an object that names a serializer nobody registered is read as an ordinary object', () => {
+    for (const name of NAMES_NOBODY_REGISTERED) {
+      const read = Serializer.deserialize(
+        `{"__serializerId":"${name}","title":"a","__proto__":{"done":true},` +
+          `"when":{"__serializerId":"@proteinjs/serializer/MomentSerializer","value":1700000000000}}`
+      );
+      expect(Object.keys(read).sort()).toEqual(['__serializerId', 'title', 'when']);
+      expect(moment.isMoment(read.when)).toBe(true);
+      expect(Object.getPrototypeOf(read)).toBe(Object.prototype);
+    }
+  });
+
+  it('an object that names a serializer nobody registered is written as an ordinary object', () => {
+    const when = moment(1_700_000_000_000);
+    for (const name of NAMES_NOBODY_REGISTERED) {
+      expect(Serializer.serialize({ __serializerId: name, title: 'a', when })).toBe(
+        JSON.stringify({
+          __serializerId: name,
+          title: 'a',
+          when: { __serializerId: '@proteinjs/serializer/MomentSerializer', value: when.valueOf() },
+        })
+      );
+    }
+  });
+
+  it('an object read back has the prototype every object has, whatever fields its text names', () => {
+    const read = Serializer.deserialize('{"title":"a","__proto__":{"done":true}}');
+    expect(Object.getPrototypeOf(read)).toBe(Object.prototype);
+    expect(read.done).toBeUndefined();
+    expect(read).toEqual({ title: 'a' });
   });
 });

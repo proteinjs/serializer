@@ -15,6 +15,10 @@ export type CustomSerializableObject = {
 
 type CustomSerializerBase = {
   serialize: (object: any) => SerializableObject;
+  /**
+   * Handed the form `serialize` wrote, with each of its fields already read back (a nested value of
+   * another kind arrives as that value). What it returns is the value: nothing else is laid on it.
+   */
   deserialize: (serialized: any) => any;
 };
 
@@ -81,15 +85,16 @@ export class Serializer {
       return serializable;
     }
 
-    if (typeof serializable === 'object' && typeof serializable.__serializerId === 'string') {
-      const serializer = Serializer.getCustomSerializerMap()[serializable.__serializerId];
-      if (serializer) {
-        serializable = Object.assign({ __serializerId: serializer.id }, serializer.serialize(serializable));
-        serialized = {};
-        Object.keys(serializable)
-          .filter((prop) => serializable.hasOwnProperty(prop))
-          .forEach((prop) => (serialized[prop] = Serializer._serialize(serializable[prop])));
-      }
+    const customSerializer =
+      typeof serializable === 'object' && typeof serializable.__serializerId === 'string'
+        ? Serializer.registered(Serializer.getCustomSerializerMap(), serializable.__serializerId)
+        : undefined;
+    if (customSerializer) {
+      serializable = Object.assign({ __serializerId: customSerializer.id }, customSerializer.serialize(serializable));
+      serialized = {};
+      Object.keys(serializable)
+        .filter((prop) => serializable.hasOwnProperty(prop))
+        .forEach((prop) => (serialized[prop] = Serializer._serialize(serializable[prop])));
     } else if (typeof serializable === 'object' && serializable.constructor.name != 'Array') {
       const thirdPartyLibCustomSerializers = Object.values(Serializer.getThirdPartyLibCustomSerializerMap());
       let thirdPartyLibCustomSerializer;
@@ -116,6 +121,11 @@ export class Serializer {
     return serialized;
   }
 
+  /**
+   * Reads a text {@link serialize} wrote, or the value already parsed from one. Every object of the
+   * text is read: by the serializer its `__serializerId` names when one is registered under that name,
+   * and field by field, as an ordinary object, when none is. {@link serialize} writes by the same rule.
+   */
   static deserialize(serialized: string) {
     if (serialized == 'undefined' || typeof serialized === 'undefined') {
       return undefined;
@@ -142,25 +152,43 @@ export class Serializer {
       return parsed;
     }
 
-    if (typeof parsed === 'object' && typeof parsed.__serializerId === 'string') {
-      const serializer = Serializer.getCustomSerializerMap()[parsed.__serializerId]
-        ? Serializer.getCustomSerializerMap()[parsed.__serializerId]
-        : Serializer.getThirdPartyLibCustomSerializerMap()[parsed.__serializerId];
-      if (serializer) {
-        deserialized = serializer.deserialize(parsed);
-        Object.keys(parsed)
-          .filter((prop) => parsed.hasOwnProperty(prop))
-          .forEach((prop) => (deserialized[prop] = Serializer._deserialize(parsed[prop])));
-      }
+    const serializer =
+      typeof parsed === 'object' && typeof parsed.__serializerId === 'string'
+        ? Serializer.registered(Serializer.getCustomSerializerMap(), parsed.__serializerId) ??
+          Serializer.registered(Serializer.getThirdPartyLibCustomSerializerMap(), parsed.__serializerId)
+        : undefined;
+    if (serializer) {
+      deserialized = serializer.deserialize(Serializer.fieldsOf(parsed));
     } else if (typeof parsed === 'object' && parsed.constructor.name != 'Array') {
-      deserialized = {};
-      Object.keys(parsed)
-        .filter((prop) => parsed.hasOwnProperty(prop))
-        .forEach((prop) => (deserialized[prop] = Serializer._deserialize(parsed[prop])));
+      deserialized = Serializer.fieldsOf(parsed);
     } else if (typeof parsed === 'object' && parsed.constructor.name == 'Array') {
       deserialized = parsed.map((item: any) => Serializer._deserialize(item));
     }
 
     return deserialized;
+  }
+
+  /**
+   * The fields of an object read from the wire, each read back in its turn, held by a new object as
+   * its own. A text can name a field `__proto__`. No value has a field of that name (it is where an
+   * object's prototype is reached), so it is not read: the object read back keeps the prototype every
+   * object has. A plain loop: a deeply nested text is read on the fewest frames.
+   */
+  private static fieldsOf(parsed: any): any {
+    const fields: any = {};
+    const props = Object.keys(parsed);
+    for (let i = 0; i < props.length; i++) {
+      const prop = props[i];
+      if (parsed.hasOwnProperty(prop) && prop !== '__proto__') {
+        fields[prop] = Serializer._deserialize(parsed[prop]);
+      }
+    }
+
+    return fields;
+  }
+
+  /** The serializer a registry holds under a name: its own entry, and nothing else its object answers to. */
+  private static registered<S>(registry: { [id: string]: S }, id: string): S | undefined {
+    return Object.prototype.hasOwnProperty.call(registry, id) ? registry[id] : undefined;
   }
 }
